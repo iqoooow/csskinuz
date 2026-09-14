@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../stores/authStore.js';
 import { sound } from '../services/sound.js';
-import { X, ShieldAlert, Send, ShieldCheck } from 'lucide-react';
+import { X, ShieldAlert, Send, ShieldCheck, Loader2 } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, loginTelegram, loginSteam } = useAuthStore();
@@ -22,24 +22,25 @@ export const AuthModal: React.FC = () => {
       sound.playWin(false);
       closeAuthModal();
     } catch (err: any) {
-      setError(err.message || 'Kirishda xatolik yuz berdi');
+      setError(err?.message || 'Kirishda xatolik yuz berdi');
       sound.playFail();
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDemoTelegramLogin = async () => {
+  const handleTelegramLogin = async () => {
     sound.playClick();
     setIsLoading(true);
     setError(null);
     try {
-      const demoInitData = `test_user_${Date.now()}_telegram_player`;
-      await loginTelegram(demoInitData);
+      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+      const initData = tg?.initData || `tg_auth_${Date.now()}`;
+      await loginTelegram(initData);
       sound.playWin(false);
       closeAuthModal();
     } catch (err: any) {
-      setError(err.message || 'Kirishda xatolik');
+      setError(err?.message || 'Telegram orqali kirishda xatolik');
       sound.playFail();
     } finally {
       setIsLoading(false);
@@ -48,7 +49,7 @@ export const AuthModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="bg-[#11131c] border border-white/[0.08] w-full max-w-sm rounded-3xl p-6 relative">
+      <div className="bg-[#11131c] border border-white/[0.08] w-full max-w-sm rounded-3xl p-6 relative shadow-2xl">
         
         <button
           onClick={() => {
@@ -61,7 +62,7 @@ export const AuthModal: React.FC = () => {
         </button>
 
         <div className="text-center mb-5">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center font-black text-slate-950 text-lg mx-auto mb-2.5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center font-black text-slate-950 text-lg mx-auto mb-2.5 shadow-md">
             ⚡
           </div>
           <h3 className="text-xl font-bold text-white">Platformaga Kirish</h3>
@@ -69,20 +70,24 @@ export const AuthModal: React.FC = () => {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-800/40 text-red-300 text-xs flex items-center space-x-2">
+          <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-800/40 text-red-300 text-xs flex items-center space-x-2 animate-in fade-in">
             <ShieldAlert className="w-4 h-4 shrink-0 text-red-400" />
-            <span>{error}</span>
+            <span className="leading-snug">{error}</span>
           </div>
         )}
 
         {/* Telegram orqali kirish */}
         <button
-          onClick={handleDemoTelegramLogin}
+          onClick={handleTelegramLogin}
           disabled={isLoading}
-          className="w-full bg-[#24A1DE] hover:bg-[#208bc0] text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 mb-3"
+          className="w-full bg-[#24A1DE] hover:bg-[#208bc0] active:scale-[0.98] text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 mb-3 shadow-lg shadow-sky-500/20 disabled:opacity-50"
         >
-          <Send className="w-3.5 h-3.5" />
-          <span>Telegram orqali kirish</span>
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-3.5 h-3.5" />
+          )}
+          <span>{isLoading ? 'Ulanmoqda...' : 'Telegram orqali kirish'}</span>
         </button>
 
         <div className="flex items-center my-4">
@@ -99,7 +104,7 @@ export const AuthModal: React.FC = () => {
               type="text"
               value={steamId}
               onChange={(e) => setSteamId(e.target.value)}
-              className="w-full bg-[#0e1017] border border-white/[0.06] focus:border-white/20 rounded-xl px-3.5 py-2 text-white text-xs font-mono outline-none"
+              className="w-full bg-[#0e1017] border border-white/[0.06] focus:border-white/20 rounded-xl px-3.5 py-2 text-white text-xs font-mono outline-none transition-colors"
               placeholder="76561198..."
               required
             />
@@ -111,7 +116,7 @@ export const AuthModal: React.FC = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-[#0e1017] border border-white/[0.06] focus:border-white/20 rounded-xl px-3.5 py-2 text-white text-xs outline-none"
+              className="w-full bg-[#0e1017] border border-white/[0.06] focus:border-white/20 rounded-xl px-3.5 py-2 text-white text-xs outline-none transition-colors"
               placeholder="Nickname"
               required
             />
@@ -120,9 +125,13 @@ export const AuthModal: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full btn-surface py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5"
+            className="w-full btn-surface py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 active:scale-[0.98] transition-all disabled:opacity-50"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            {isLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            )}
             <span>{isLoading ? 'Ulanmoqda...' : 'Steam Bilan Kirish'}</span>
           </button>
         </form>
