@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLiveDropStore } from '../stores/liveDropStore.js';
 import { RarityType } from '../types/index.js';
+import { handleImageError } from '../constants/assets.js';
 
 const rarityColors: Record<RarityType, { dot: string; text: string; bg: string }> = {
   consumer: { dot: 'bg-[#b0c3d9]', text: 'text-[#b0c3d9]', bg: 'bg-[#b0c3d9]/5' },
@@ -10,8 +11,6 @@ const rarityColors: Record<RarityType, { dot: string; text: string; bg: string }
   covert: { dot: 'bg-[#eb4b4b]', text: 'text-[#eb4b4b]', bg: 'bg-[#eb4b4b]/10' },
   special: { dot: 'bg-[#ffd700]', text: 'text-[#ffd700]', bg: 'bg-[#ffd700]/15' },
 };
-
-const FALLBACK_IMAGE = 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FAR17PLfYQJD_9W7m5a0n_L1JaKfzzoGuMlOjede0uvFrInwigK2_UduYTjzJ4_AIA8-YlqErlnq35S7tJXBzXFiuCY8pSGK_kF_q08';
 
 export const LiveDropsBar: React.FC = () => {
   const drops = useLiveDropStore((state) => state.drops);
@@ -39,13 +38,11 @@ export const LiveDropsBar: React.FC = () => {
             >
               <div className="w-8 h-8 flex items-center justify-center relative shrink-0">
                 <img
-                  src={drop.item.imageUrl || FALLBACK_IMAGE}
+                  src={drop.item.imageUrl}
                   alt={drop.item.name}
                   className="w-8 h-8 object-contain drop-shadow group-hover:scale-110 transition-transform"
                   loading="lazy"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-                  }}
+                  onError={(e) => handleImageError(e, false)}
                 />
               </div>
 

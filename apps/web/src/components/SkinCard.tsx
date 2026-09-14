@@ -1,6 +1,7 @@
 import React from 'react';
 import { SkinItem, RarityType } from '../types/index.js';
 import { sound } from '../services/sound.js';
+import { handleImageError } from '../constants/assets.js';
 
 interface SkinCardProps {
   item: SkinItem;
@@ -60,6 +61,7 @@ export const SkinCard: React.FC<SkinCardProps> = ({
           alt={item.name}
           className="max-h-20 max-w-[85%] object-contain drop-shadow group-hover:scale-105 transition-transform duration-200"
           loading="lazy"
+          onError={(e) => handleImageError(e, false)}
         />
       </div>
 
@@ -80,7 +82,7 @@ export const SkinCard: React.FC<SkinCardProps> = ({
         {actionButton && <div className="mt-2 w-full">{actionButton}</div>}
       </div>
 
-      {/* Nozik pastki rarity chizig'i (subtle, 2px) */}
+      {/* Nozik pastki rarity chizig'i */}
       <div className={`absolute bottom-0 left-0 right-0 h-[2px] ${rarity.bar} opacity-75`}></div>
     </div>
   );

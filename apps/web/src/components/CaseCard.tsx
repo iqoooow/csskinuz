@@ -2,13 +2,12 @@ import React from 'react';
 import { Case } from '../types/index.js';
 import { sound } from '../services/sound.js';
 import { Sparkles } from 'lucide-react';
+import { handleImageError } from '../constants/assets.js';
 
 interface CaseCardProps {
   caseData: Case;
   onOpen: (slug: string) => void;
 }
-
-const FALLBACK_CASE_IMG = 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FAR17PLfYQJD_9W7m5a0n_L1JaKfzzoGuMlOjede0uvFrInwigK2_UduYTjzJ4_AIA8-YlqErlnq35S7tJXBzXFiuCY8pSGK_kF_q08';
 
 export const CaseCard: React.FC<CaseCardProps> = ({ caseData, onOpen }) => {
   const isFree = Boolean(caseData.is_free);
@@ -43,13 +42,11 @@ export const CaseCard: React.FC<CaseCardProps> = ({ caseData, onOpen }) => {
       {/* Keys 3D Tasviri */}
       <div className="w-full h-36 flex items-center justify-center relative my-2 z-10">
         <img
-          src={caseData.image_url || FALLBACK_CASE_IMG}
+          src={caseData.image_url}
           alt={caseData.name}
           className="max-h-32 max-w-[88%] object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = FALLBACK_CASE_IMG;
-          }}
+          onError={(e) => handleImageError(e, true)}
         />
       </div>
 
