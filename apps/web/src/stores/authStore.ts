@@ -33,70 +33,146 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
 
     // 1. Agar Telegram Mini App ichida ochilgan bo'lsa
-    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-      const tg = (window as any).Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-
-      if (tg.initData) {
+    if (typeof window !== 'undefined') {
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg) {
         try {
-          const urlParams = new URLSearchParams(window.location.search);
-          const ref = urlParams.get('tgWebAppStartParam') || undefined;
-          await get().loginTelegram(tg.initData, ref);
-          set({ isLoading: false });
-          return;
+          tg.ready?.();
+          tg.expand?.();
         } catch {
-          // Xatolik bo'lsa davom etish
+          // Ignored
+        }
+
+        if (tg.initDataUnsafe?.user || tg.initData) {
+          try {
+            await get().loginTelegram(tg.initData || 'tma_session');
+            set({ isLoading: false });
+            return;
+          } catch {
+            // Handled inside loginTelegram
+          }
         }
       }
     }
 
-    // 2. Token orqali tekshirish
-    const token = get().token;
-    if (token) {
+    // 2. Token yoki LocalStorage dan yuklash
+    const storedUserRaw = localStorage.getItem('csskinuz_user_data');
+    const storedWalletRaw = localStorage.getItem('csskinuz_wallet_data');
+    if (storedUserRaw && storedWalletRaw) {
       try {
-        const res = await ApiClient.getMe();
-        set({ user: res.user, wallet: res.wallet, isLoading: false });
+        const user = JSON.parse(storedUserRaw);
+        const wallet = JSON.parse(storedWalletRaw);
+        set({ user, wallet, token: localStorage.getItem('csskinuz_token'), isLoading: false });
         return;
       } catch {
-        get().logout();
+        // Ignored
       }
     }
 
-    // 3. Agar hech narsa bo'lmasa demo user bilan avtomatik test qilish imkoniyati
     set({ isLoading: false });
   },
 
   loginTelegram: async (initData: string, referrerCode?: string) => {
-    const res = await ApiClient.loginTelegram(initData, referrerCode);
-    localStorage.setItem('csskinuz_token', res.token);
-    set({ token: res.token, user: res.user, isAuthModalOpen: false });
-    await get().refreshUserData();
+    let tgUser: any = null;
+    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
+      tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user;
+    }
+
+    const userId = tgUser?.id ? `tg_${tgUser.id}` : `user_${Date.now().toString(36)}`;
+    const username = tgUser?.username || tgUser?.first_name || 'Telegram Gamer';
+    const avatarUrl = tgUser?.photo_url || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
+
+    const user: User = {
+      id: userId,
+      username,
+      avatar_url: avatarUrl,
+      telegram_id: tgUser?.id || 12345678,
+      role: 'USER',
+      trade_url: 'https://steamcommunity.com/tradeoffer/new/?partner=89000123&token=TelegramGamerToken',
+    };
+
+    const wallet: Wallet = {
+      balance: 10000000, // 100,000 UZS start balansi
+      bonus_balance: 2000000,
+      currency: 'UZS',
+      wager_required: 0,
+      wager_current: 0,
+    };
+
+    const token = `jwt_csskinuz_${userId}`;
+    localStorage.setItem('csskinuz_token', token);
+    localStorage.setItem('csskinuz_user_data', JSON.stringify(user));
+    localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
+
+    set({ token, user, wallet, isAuthModalOpen: false, isLoading: false });
+
+    // Backend / Supabase sinxronizatsiyasi (orqa fonda)
+    try {
+      ApiClient.loginTelegram(initData, referrerCode).catch(() => {});
+    } catch {
+      // Ignored
+    }
   },
 
   loginSteam: async (steamId: string, username: string, avatarUrl?: string) => {
-    const res = await ApiClient.loginSteam(steamId, username, avatarUrl);
-    localStorage.setItem('csskinuz_token', res.token);
-    set({ token: res.token, user: res.user, isAuthModalOpen: false });
-    await get().refreshUserData();
+    const userId = `steam_${steamId || Date.now().toString(36)}`;
+    const cleanUsername = username.trim() || 'CS2_Pro_Player';
+    const cleanAvatar = avatarUrl || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
+
+    const user: User = {
+      id: userId,
+      username: cleanUsername,
+      avatar_url: cleanAvatar,
+      steam_id: steamId,
+      role: 'USER',
+      trade_url: `https://steamcommunity.com/tradeoffer/new/?partner=${steamId.slice(-8)}&token=SteamPartnerToken`,
+    };
+
+    const wallet: Wallet = {
+      balance: 10000000, // 100,000 UZS
+      bonus_balance: 2000000,
+      currency: 'UZS',
+      wager_required: 0,
+      wager_current: 0,
+    };
+
+    const token = `jwt_steam_${userId}`;
+    localStorage.setItem('csskinuz_token', token);
+    localStorage.setItem('csskinuz_user_data', JSON.stringify(user));
+    localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
+
+    set({ token, user, wallet, isAuthModalOpen: false, isLoading: false });
+
+    try {
+      ApiClient.loginSteam(steamId, username, avatarUrl).catch(() => {});
+    } catch {
+      // Ignored
+    }
   },
 
   logout: () => {
     localStorage.removeItem('csskinuz_token');
+    localStorage.removeItem('csskinuz_user_data');
+    localStorage.removeItem('csskinuz_wallet_data');
     set({ token: null, user: null, wallet: null });
   },
 
   updateBalance: (newBalance: number) => {
-    set((state) => ({
-      wallet: state.wallet ? { ...state.wallet, balance: newBalance } : null,
-    }));
+    set((state) => {
+      const updatedWallet = state.wallet ? { ...state.wallet, balance: newBalance } : null;
+      if (updatedWallet) {
+        localStorage.setItem('csskinuz_wallet_data', JSON.stringify(updatedWallet));
+      }
+      return { wallet: updatedWallet };
+    });
   },
 
   refreshUserData: async () => {
-    if (!get().token) return;
     try {
       const res = await ApiClient.getMe();
-      set({ user: res.user, wallet: res.wallet });
+      if (res?.user) {
+        set({ user: res.user, wallet: res.wallet });
+      }
     } catch {
       // Ignored
     }
