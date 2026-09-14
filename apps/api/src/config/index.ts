@@ -16,8 +16,8 @@ export const CONFIG = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   STEAM_API_KEY: process.env.STEAM_API_KEY || 'MOCK_STEAM_API_KEY_FOR_DEV_AND_PROD',
   DATABASE_PATH: process.env.DATABASE_PATH || path.resolve(process.cwd(), 'csskinuz.sqlite'),
-  APP_URL: process.env.APP_URL || 'http://localhost:3000',
-  API_URL: process.env.API_URL || 'http://localhost:4000',
+  APP_URL: (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, ''),
+  API_URL: (process.env.API_URL || 'http://localhost:4000').replace(/\/$/, ''),
   HOUSE_EDGE_DEFAULT: 0.10, // 10% Platform komissiyasi
   CURRENCY: 'UZS',
   TIYIN_MULTIPLIER: 100, // 1 UZS = 100 tiyin
