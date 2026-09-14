@@ -1,0 +1,26 @@
+{
+  "name": "csskinuz-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Professional CS2 Skin Platform (SKINOZ Style) with Web and Telegram Mini App",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --prefix apps/api && npm run build --prefix apps/web",
+    "start": "npm run start --prefix apps/api",
+    "dev:api": "npm run dev --prefix apps/api",
+    "dev:web": "npm run dev --prefix apps/web",
+    "test": "npm run test --prefix apps/api"
+  },
+  "keywords": [
+    "cs2",
+    "skins",
+    "case-opening",
+    "upgrade",
+    "case-battles",
+    "telegram-mini-app"
+  ],
+  "author": "CSSKINUZ Architecture Team",
+  "license": "MIT"
+}
