@@ -14,9 +14,19 @@ export class WebSocketClient {
       return;
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws`;
+    const envWsUrl = (import.meta as any).env?.VITE_WS_URL;
+    const envApiUrl = (import.meta as any).env?.VITE_API_URL;
+    let wsUrl = '';
+
+    if (envWsUrl) {
+      wsUrl = envWsUrl;
+    } else if (envApiUrl && !envApiUrl.includes('localhost')) {
+      wsUrl = envApiUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws';
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      wsUrl = `${protocol}//${host}/ws`;
+    }
 
     try {
       this.ws = new WebSocket(wsUrl);

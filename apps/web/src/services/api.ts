@@ -1,4 +1,5 @@
-const API_BASE = '/api/v1';
+const VITE_API_URL = (import.meta as any).env?.VITE_API_URL || '';
+const API_BASE = VITE_API_URL ? `${VITE_API_URL.replace(/\/$/, '')}/api/v1` : '/api/v1';
 
 export class ApiClient {
   private static getToken(): string | null {
@@ -16,19 +17,26 @@ export class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok || !data.success) {
-      const errorMsg = data?.error?.message || 'Tarmoq xatoligi yuz berdi';
-      throw new Error(errorMsg);
+      if (!response.ok || !data.success) {
+        const errorMsg = data?.error?.message || 'Tarmoq xatoligi yuz berdi';
+        throw new Error(errorMsg);
+      }
+
+      return data.data;
+    } catch (err: any) {
+      if (err.message && !err.message.includes('fetch')) {
+        throw err;
+      }
+      throw new Error('Server bilan ulanishda uzilish bo\'ldi. Iltimos qayta urinib ko\'ring.');
     }
-
-    return data.data;
   }
 
   // Auth
