@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../stores/authStore.js';
 import { sound } from '../services/sound.js';
-import { X, ShieldAlert, Send, ShieldCheck, Loader2 } from 'lucide-react';
+import { X, ShieldAlert, Send, ShieldCheck, Loader2, ExternalLink, Zap } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, loginTelegram, loginSteam } = useAuthStore();
@@ -9,9 +9,102 @@ export const AuthModal: React.FC = () => {
   const [username, setUsername] = useState<string>('CS2_Gamer_UZ');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInsideTelegram, setIsInsideTelegram] = useState<boolean>(false);
+  const [tgProfile, setTgProfile] = useState<any>(null);
+  const widgetContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg && (tg.initData || tg.initDataUnsafe?.user)) {
+        setIsInsideTelegram(true);
+        setTgProfile(tg.initDataUnsafe?.user);
+      }
+    }
+  }, [isAuthModalOpen]);
+
+  // Telegram Login Widget callback
+  useEffect(() => {
+    if (!isAuthModalOpen || isInsideTelegram) return;
+
+    (window as any).onTelegramAuth = async (user: any) => {
+      sound.playClick();
+      setIsLoading(true);
+      setError(null);
+      try {
+        const initData = `tg_widget_${user.id}_${user.first_name}_${user.username || ''}`;
+        await loginTelegram(initData);
+        sound.playWin(false);
+        closeAuthModal();
+      } catch (err: any) {
+        setError(err?.message || 'Telegram orqali tasdiqlashda xatolik');
+        sound.playFail();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Load telegram-widget.js dynamically
+    if (widgetContainerRef.current) {
+      widgetContainerRef.current.innerHTML = '';
+      const script = document.createElement('script');
+      script.src = 'https://telegram.org/js/telegram-widget.js?22';
+      script.setAttribute('data-telegram-login', 'csskinuzbot');
+      script.setAttribute('data-size', 'large');
+      script.setAttribute('data-radius', '12');
+      script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+      script.setAttribute('data-request-access', 'write');
+      script.async = true;
+      widgetContainerRef.current.appendChild(script);
+    }
+  }, [isAuthModalOpen, isInsideTelegram]);
 
   if (!isAuthModalOpen) return null;
 
+  // Telegram Mini App orqali tasdiqlash
+  const handleTelegramMiniAppLogin = async () => {
+    sound.playClick();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+      const initData = tg?.initData || `tg_auth_${tgProfile?.id || Date.now()}`;
+      await loginTelegram(initData);
+      sound.playWin(false);
+      closeAuthModal();
+    } catch (err: any) {
+      setError(err?.message || 'Telegram orqali kirishda xatolik');
+      sound.playFail();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Telegram Botga o'tish (Tasdiqlash uchun)
+  const handleOpenTelegramBot = () => {
+    sound.playClick();
+    window.open('https://t.me/csskinuzbot?start=auth', '_blank');
+  };
+
+  // Brauzerda tezkor sinash (Demo Rejim)
+  const handleQuickBrowserLogin = async () => {
+    sound.playClick();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const demoData = `demo_user_${Date.now()}`;
+      await loginTelegram(demoData);
+      sound.playWin(false);
+      closeAuthModal();
+    } catch (err: any) {
+      setError(err?.message || 'Kirishda xatolik');
+      sound.playFail();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Steam orqali kirish
   const handleSteamLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     sound.playClick();
@@ -23,24 +116,6 @@ export const AuthModal: React.FC = () => {
       closeAuthModal();
     } catch (err: any) {
       setError(err?.message || 'Kirishda xatolik yuz berdi');
-      sound.playFail();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleTelegramLogin = async () => {
-    sound.playClick();
-    setIsLoading(true);
-    setError(null);
-    try {
-      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
-      const initData = tg?.initData || `tg_auth_${Date.now()}`;
-      await loginTelegram(initData);
-      sound.playWin(false);
-      closeAuthModal();
-    } catch (err: any) {
-      setError(err?.message || 'Telegram orqali kirishda xatolik');
       sound.playFail();
     } finally {
       setIsLoading(false);
@@ -76,19 +151,42 @@ export const AuthModal: React.FC = () => {
           </div>
         )}
 
-        {/* Telegram orqali kirish */}
-        <button
-          onClick={handleTelegramLogin}
-          disabled={isLoading}
-          className="w-full bg-[#24A1DE] hover:bg-[#208bc0] active:scale-[0.98] text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 mb-3 shadow-lg shadow-sky-500/20 disabled:opacity-50"
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-3.5 h-3.5" />
-          )}
-          <span>{isLoading ? 'Ulanmoqda...' : 'Telegram orqali kirish'}</span>
-        </button>
+        {/* 1. Agar Telegram Mini App ichida bo'lsa */}
+        {isInsideTelegram ? (
+          <button
+            onClick={handleTelegramMiniAppLogin}
+            disabled={isLoading}
+            className="w-full bg-[#24A1DE] hover:bg-[#208bc0] active:scale-[0.98] text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 mb-3 shadow-lg shadow-sky-500/20"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            <span>Telegram orqali tasdiqlash {tgProfile?.username ? `(@${tgProfile.username})` : ''}</span>
+          </button>
+        ) : (
+          <div className="space-y-2.5 mb-4">
+            {/* Telegram Bot orqali ochish */}
+            <button
+              onClick={handleOpenTelegramBot}
+              className="w-full bg-[#24A1DE] hover:bg-[#208bc0] active:scale-[0.98] text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 shadow-lg shadow-sky-500/20"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Telegram Botda Tasdiqlash</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-80 ml-1" />
+            </button>
+
+            {/* Telegram Login Widget Container */}
+            <div className="flex justify-center py-1 overflow-hidden" ref={widgetContainerRef}></div>
+
+            {/* Brauzerda tezkor sinash */}
+            <button
+              onClick={handleQuickBrowserLogin}
+              disabled={isLoading}
+              className="w-full bg-white/[0.05] hover:bg-white/[0.09] text-zinc-300 hover:text-white font-medium py-2 rounded-xl text-xs transition-all flex items-center justify-center space-x-1.5 border border-white/[0.06]"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Brauzerda Tezkor Kirish (Demo)</span>
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center my-4">
           <div className="h-px bg-white/[0.06] flex-1"></div>
