@@ -21,7 +21,7 @@ class TelegramWebAppService {
   }
 
   public isAvailable(): boolean {
-    return Boolean(this.webApp && this.webApp.initData);
+    return Boolean(this.webApp && (this.webApp.initData || this.webApp.initDataUnsafe?.user));
   }
 
   public init() {
@@ -29,16 +29,25 @@ class TelegramWebAppService {
     if (!wa) return;
 
     try {
-      wa.ready();
-      wa.expand();
-      if (wa.setHeaderColor) {
-        wa.setHeaderColor('#08090d');
+      wa.ready?.();
+      wa.expand?.();
+
+      // Versiya tekshiruvi bilan xavfsiz chaqirish
+      const isAtLeast = (ver: string) => {
+        try {
+          return Boolean(wa.isVersionAtLeast?.(ver));
+        } catch {
+          return false;
+        }
+      };
+
+      if (isAtLeast('6.1')) {
+        wa.setHeaderColor?.('#08090d');
+        wa.setBackgroundColor?.('#08090d');
       }
-      if (wa.setBackgroundColor) {
-        wa.setBackgroundColor('#08090d');
-      }
-      if (wa.enableClosingConfirmation) {
-        wa.enableClosingConfirmation();
+
+      if (isAtLeast('6.2')) {
+        wa.enableClosingConfirmation?.();
       }
     } catch {
       // Ignore
