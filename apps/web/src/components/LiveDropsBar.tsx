@@ -11,6 +11,8 @@ const rarityColors: Record<RarityType, { dot: string; text: string; bg: string }
   special: { dot: 'bg-[#ffd700]', text: 'text-[#ffd700]', bg: 'bg-[#ffd700]/15' },
 };
 
+const FALLBACK_IMAGE = 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FAR17PLfYQJD_9W7m5a0n_L1JaKfzzoGuMlOjede0uvFrInwigK2_UduYTjzJ4_AIA8-YlqErlnq35S7tJXBzXFiuCY8pSGK_kF_q08';
+
 export const LiveDropsBar: React.FC = () => {
   const drops = useLiveDropStore((state) => state.drops);
 
@@ -37,10 +39,13 @@ export const LiveDropsBar: React.FC = () => {
             >
               <div className="w-8 h-8 flex items-center justify-center relative shrink-0">
                 <img
-                  src={drop.item.imageUrl}
+                  src={drop.item.imageUrl || FALLBACK_IMAGE}
                   alt={drop.item.name}
                   className="w-8 h-8 object-contain drop-shadow group-hover:scale-110 transition-transform"
                   loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                  }}
                 />
               </div>
 
