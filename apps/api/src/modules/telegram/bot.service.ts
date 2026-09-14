@@ -91,17 +91,10 @@ class TelegramBotService {
           }
         }
 
-        // Inline Tugmalar
+        // Inline Tugma (Faqat toza Mini App tugmasi)
         const webAppUrl = `${CONFIG.APP_URL}?tg_id=${tgUser.id}`;
         let keyboard = new InlineKeyboard();
-        keyboard = this.addPlayButton(keyboard, '⚡ CS2 SKINLARNI O\'YNASH (MINI APP)', webAppUrl, 'cmd_open_app');
-        keyboard
-          .row()
-          .text('💰 Balansim', 'cmd_balance')
-          .text('🎁 Bepul Keys', 'cmd_free_case')
-          .row()
-          .text('👥 Referal Tizimi', 'cmd_referral')
-          .text('🛡️ Provably Fair', 'cmd_fairness');
+        keyboard = this.addPlayButton(keyboard, '🎮 CS2 SKINLARNI O\'YNASH (MINI APP)', webAppUrl, 'cmd_open_app');
 
         const welcomeText = `
 🎯 <b>CSSKIN.UZ — O'zbekistondagi #1 CS2 Keys Platformasi!</b>
