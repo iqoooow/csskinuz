@@ -18,18 +18,20 @@ Ushbu hujjat loyihadagi barcha potensial xatoliklar, tekshiruvlar, chekka holatl
   2. Telegram Bot (@csskinuzbot orqali kirish)
   3. Steam ID va Nickname orqali kirish
 
-### 1.3. Dizayn va Uslublarning Bir Xil Emasligi
-- **Muammo:** Ba'zi sahifalarda eski Tailwind sinflari (`bg-brand-gold`, `bg-background-secondary`, `bg-brand-green`), boshqa joylarda esa yangi sinflar ishlatilib, dizayn sifati pasaygan edi.
-- **Yechim:** Yagona Luxury Dark Cyberpunk CS2 dizayn tizimi yaratildi:
-  - Asosiy fon: `#07080d` chuqur obsidian
-  - Karta va panellar: `bg-[#0e1017]` va `bg-[#11131c]` nozik `border-white/[0.06]` bilan
-  - Oltin metallik gradientlar: `from-amber-400 to-amber-600`
-  - Rarity ranglari: Gold (`special`), Crimson (`covert`), Magenta (`classified`), Purple (`restricted`), Blue (`milspec`)
-  - Nozik lazer ruletka chizig'i va silliq mikro-animatsiyalar
+### 1.3. Telegram Login Vidjetida "Bot domain invalid" Xatoligi
+- **Muammo:** Telegram login iframe skripti domenni tekshirganda localhost yoki ro'yxatdan o'tmagan domen tufayli `Bot domain invalid` qora xatolik matnini chiqarib qo'ygan edi.
+- **Ildiz sababi:** `https://telegram.org/js/telegram-widget.js?22` faqat @BotFather da `/setdomain` qilingan aniq domenda ishlaydi, boshqa barcha holatlarda xatolik ko'rsatadi.
+- **Yechim:** Iframe vidjeti to'liq olib tashlandi. O'rniga ikki toza tab yaratildi:
+  - **Telegram Tabi:** "Telegram Botda Ochish" (Deep Link / TMA) va `@username` orqali tezkor kirish formasi.
+  - **Steam Tabi:** 64-bit SteamID va o'yindagi Nickname orqali xavfsiz ulanish.
 
-### 1.4. Rasm Yuklash Xatoliklari (404 Image Infinite Loop)
-- **Muammo:** Steam CDN ba'zan 404 berganida brauzer `onError` cheksiz tsiklga tushib qolishi mumkin edi.
-- **Yechim:** `assets.ts` da xavfsiz SVG fallback yaratilgan va `target.onerror = null` bilan bir marta xavfsiz almashtiriladi.
+### 1.4. Dizayn va Logged-In Header Sifatsizligi
+- **Muammo:** Tizimga kirgandan so'ng header qisilib, noqulay va past sifatli ko'rinishga tushib qolgan edi.
+- **Yechim:** Luxury Dark CS2 andozasida qayta ishlandi:
+  - Tilla tanga va `UZS` tegli kengaytirilgan balans vidjeti
+  - `+ To'ldirish` oltin gradientli tugma
+  - Professional o'yinchi avatari, online holat nuqtasi va shaffof (glassmorphic) ochiluvchi menyu
+  - Jonli Drop tasmasida yuqori aniqlikdagi CS2 qurollari va aniq UZS narxlari
 
 ---
 
@@ -37,20 +39,17 @@ Ushbu hujjat loyihadagi barcha potensial xatoliklar, tekshiruvlar, chekka holatl
 
 | Bo'lim | Funksiya | Kutilayotgan Natija | Holat |
 | :--- | :--- | :--- | :--- |
-| **Auth** | Telegram Mini App kirish | `initData` orqali tezkor kirish, balans `0 UZS` dan boshlanadi | ✅ Tekshirildi |
-| **Auth** | Steam orqali kirish | SteamID va Nickname kiritilganda haqiqiy profil ochiladi | ✅ Tekshirildi |
-| **Hamyon** | Depozit to'ldirish | Payme, Click, Uzum, USDT simulatorida balans real vaqtda yangilanadi | ✅ Tekshirildi |
-| **Keyslar** | Keys ochish | Balansdan summa yechiladi, ruletka aylanadi, yutuq inventarga tushadi | ✅ Tekshirildi |
-| **Keyslar** | Balans yetarli bo'lmaganda | Xatolik beradi va depozit modalini ochishni taklif qiladi | ✅ Tekshirildi |
-| **Upgrade** | Upgrade qilish | Ehtimollik hisoblanadi, strelka aylanadi, g'alaba/mag'lubiyat to'g'ri qayd etiladi | ✅ Tekshirildi |
-| **Battles** | Case Battle | 1v1, 1v1v1 xonalar yaratiladi, AI bot qo'shiladi va yakunlanadi | ✅ Tekshirildi |
-| **Inventar** | Skin sotish / yechish | Skin sotilganda balansga UZS qo'shiladi, Steam yechish so'rovi yuboriladi | ✅ Tekshirildi |
-| **Savdo** | P2P Trade | Inventar va platforma zaxirasi o'rtasida narxlar farqi bilan almashtiriladi | ✅ Tekshirildi |
-| **Halollik** | Provably Fair | SHA256 kalkulyatori orqali xesh va natija tekshiriladi | ✅ Tekshirildi |
+| **Auth** | Telegram Tab (Modal) | "Bot domain invalid" yo'q, Telegram Bot ochiladi yoki Username kiritiladi | ✅ Tekshirildi (0 xato) |
+| **Auth** | Steam Tab (Modal) | SteamID va Nickname kiritilganda darhol profil ulanadi | ✅ Tekshirildi (0 xato) |
+| **Header** | Kirilgan holat | Tilla balans vidjeti, oltin to'ldirish tugmasi, avatar va online nuqta | ✅ Tekshirildi (0 xato) |
+| **Jonli Drop** | Live Feed | CS2 qurollari, neon ramkalar, bir qatordagi toza narxlar | ✅ Tekshirildi (0 xato) |
+| **Hamyon** | Depozit | Payme, Click, Uzum, USDT simulatorida balans real vaqtda oshadi | ✅ Tekshirildi (0 xato) |
+| **Keyslar** | Ochish | Balansdan yechiladi, ruletka aylanadi, inventarga tushadi | ✅ Tekshirildi (0 xato) |
+| **Upgrade** | Upgrade arenasi | Radial hisoblagich aylanadi, g'alaba/mag'lubiyat to'g'ri hisoblanadi | ✅ Tekshirildi (0 xato) |
 
 ---
 
-## 3. Kompilyatsiya va Ishga Tushirish
+## 3. Kompilyatsiya va Server Holati
 - `npm run build --prefix apps/web`: 0 ta xatolik (100% muvaffaqiyatli)
 - `npm run build --prefix apps/api`: 0 ta xatolik (100% muvaffaqiyatli)
-- `build.sh` va `start.sh`: To'liq ishchi holatda
+- Barcha o'zgarishlar GitHub `main` tarmog'iga push qilindi.
