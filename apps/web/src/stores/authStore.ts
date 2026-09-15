@@ -21,7 +21,7 @@ interface AuthState {
   closeAuthModal: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   wallet: null,
   token: localStorage.getItem('csskinuz_token'),
@@ -32,7 +32,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initAuth: async () => {
     set({ isLoading: true });
 
-    // 1. Agar Telegram Mini App ichida ochilgan bo'lsa
+    // 1. Telegram Mini App yoki URL orqali Telegram foydalanuvchisini aniqlash
+    let tgUser: any = null;
     if (typeof window !== 'undefined') {
       const tg = (window as any).Telegram?.WebApp;
       if (tg) {
@@ -42,20 +43,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch {
           // Ignored
         }
+        if (tg.initDataUnsafe?.user) {
+          tgUser = tg.initDataUnsafe.user;
+        }
+      }
 
-        if (tg.initDataUnsafe?.user || tg.initData) {
-          try {
-            await get().loginTelegram(tg.initData || 'tma_session');
-            set({ isLoading: false });
-            return;
-          } catch {
-            // Handled inside loginTelegram
+      // Agar URL search parametrlari bo'lsa (?tg_id=...&username=...)
+      if (!tgUser) {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const tgIdParam = params.get('tg_id');
+          const usernameParam = params.get('username');
+          if (tgIdParam) {
+            tgUser = {
+              id: Number(tgIdParam),
+              username: usernameParam || 'Telegram_Gamer',
+              first_name: usernameParam || 'Gamer',
+            };
           }
+        } catch {
+          // Ignored
         }
       }
     }
 
-    // 2. Token yoki LocalStorage dan yuklash
+    // Agar Telegram foydalanuvchisi mavjud bo'lsa — darhol tizimga kiritish!
+    if (tgUser) {
+      const userId = `tg_${tgUser.id}`;
+      const username = tgUser.username ? `@${tgUser.username}` : (tgUser.first_name || 'Telegram Gamer');
+      const avatarUrl = tgUser.photo_url || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
+
+      let wallet: Wallet = {
+        balance: 10000000, // 100 000 UZS boshlang'ich balans
+        bonus_balance: 2000000,
+        currency: 'UZS',
+        wager_required: 0,
+        wager_current: 0,
+      };
+
+      const storedWalletRaw = localStorage.getItem('csskinuz_wallet_data');
+      if (storedWalletRaw) {
+        try {
+          wallet = JSON.parse(storedWalletRaw);
+        } catch {
+          // Ignored
+        }
+      }
+
+      const user: User = {
+        id: userId,
+        username,
+        avatar_url: avatarUrl,
+        telegram_id: tgUser.id,
+        role: 'USER',
+        trade_url: 'https://steamcommunity.com/tradeoffer/new/?partner=89000123&token=TelegramGamerToken',
+      };
+
+      const token = `jwt_tg_${userId}`;
+      localStorage.setItem('csskinuz_token', token);
+      localStorage.setItem('csskinuz_user_data', JSON.stringify(user));
+      localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
+
+      set({ token, user, wallet, isLoading: false, isAuthModalOpen: false });
+      return;
+    }
+
+    // 2. LocalStorage dan oldingi sessiyani yuklash
     const storedUserRaw = localStorage.getItem('csskinuz_user_data');
     const storedWalletRaw = localStorage.getItem('csskinuz_wallet_data');
     if (storedUserRaw && storedWalletRaw) {
@@ -72,14 +125,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: false });
   },
 
-  loginTelegram: async (initData: string, referrerCode?: string) => {
+  loginTelegram: async (_initData: string, _referrerCode?: string) => {
     let tgUser: any = null;
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
       tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user;
     }
 
     const userId = tgUser?.id ? `tg_${tgUser.id}` : `user_${Date.now().toString(36)}`;
-    const username = tgUser?.username || tgUser?.first_name || 'Telegram Gamer';
+    const username = tgUser?.username ? `@${tgUser.username}` : (tgUser?.first_name || 'Telegram Gamer');
     const avatarUrl = tgUser?.photo_url || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
 
     const user: User = {
@@ -91,13 +144,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       trade_url: 'https://steamcommunity.com/tradeoffer/new/?partner=89000123&token=TelegramGamerToken',
     };
 
-    const wallet: Wallet = {
-      balance: 10000000, // 100,000 UZS start balansi
+    let wallet: Wallet = {
+      balance: 10000000,
       bonus_balance: 2000000,
       currency: 'UZS',
       wager_required: 0,
       wager_current: 0,
     };
+
+    const storedWalletRaw = localStorage.getItem('csskinuz_wallet_data');
+    if (storedWalletRaw) {
+      try {
+        wallet = JSON.parse(storedWalletRaw);
+      } catch {
+        // Ignored
+      }
+    }
 
     const token = `jwt_csskinuz_${userId}`;
     localStorage.setItem('csskinuz_token', token);
@@ -105,13 +167,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
 
     set({ token, user, wallet, isAuthModalOpen: false, isLoading: false });
-
-    // Backend / Supabase sinxronizatsiyasi (orqa fonda)
-    try {
-      ApiClient.loginTelegram(initData, referrerCode).catch(() => {});
-    } catch {
-      // Ignored
-    }
   },
 
   loginSteam: async (steamId: string, username: string, avatarUrl?: string) => {
@@ -129,7 +184,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
 
     const wallet: Wallet = {
-      balance: 10000000, // 100,000 UZS
+      balance: 10000000,
       bonus_balance: 2000000,
       currency: 'UZS',
       wager_required: 0,
@@ -142,12 +197,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
 
     set({ token, user, wallet, isAuthModalOpen: false, isLoading: false });
-
-    try {
-      ApiClient.loginSteam(steamId, username, avatarUrl).catch(() => {});
-    } catch {
-      // Ignored
-    }
   },
 
   logout: () => {
