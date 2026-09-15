@@ -91,8 +91,8 @@ class TelegramBotService {
           }
         }
 
-        // Inline Tugma (Faqat toza Mini App tugmasi)
-        const webAppUrl = `${CONFIG.APP_URL}?tg_id=${tgUser.id}`;
+        // Inline Tugma (Faqat toza Mini App tugmasi va keshni yangilovchi parametr)
+        const webAppUrl = `${CONFIG.APP_URL}?v=${Date.now()}&tg_id=${tgUser.id}&username=${encodeURIComponent(tgUser.username || tgUser.first_name || 'Gamer')}`;
         let keyboard = new InlineKeyboard();
         keyboard = this.addPlayButton(keyboard, '🎮 CS2 SKINLARNI O\'YNASH (MINI APP)', webAppUrl, 'cmd_open_app');
 
@@ -122,7 +122,8 @@ Pastdagi tugmani bosing va darhol o'yinni boshlang! 👇
     // 2. /play buyrug'i
     this.bot.command('play', async (ctx) => {
       try {
-        const webAppUrl = `${CONFIG.APP_URL}?tg_id=${ctx.from?.id}`;
+        const tgUser = ctx.from;
+        const webAppUrl = `${CONFIG.APP_URL}?v=${Date.now()}&tg_id=${tgUser?.id || ''}&username=${encodeURIComponent(tgUser?.username || tgUser?.first_name || 'Gamer')}`;
         let keyboard = new InlineKeyboard();
         keyboard = this.addPlayButton(keyboard, '🚀 O\'yinga Kirish', webAppUrl, 'cmd_open_app');
 
