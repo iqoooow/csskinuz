@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../stores/authStore.js';
 import { sound } from '../services/sound.js';
-import { X, ShieldAlert, Send, ShieldCheck, Loader2, ExternalLink, Zap } from 'lucide-react';
+import { X, ShieldAlert, Send, ShieldCheck, Loader2, ExternalLink } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, loginTelegram, loginSteam } = useAuthStore();
@@ -71,7 +71,6 @@ export const AuthModal: React.FC = () => {
       sound.playWin(false);
       closeAuthModal();
     } catch {
-      // Ignored
       closeAuthModal();
     } finally {
       setIsLoading(false);
@@ -82,22 +81,6 @@ export const AuthModal: React.FC = () => {
   const handleOpenTelegramBot = () => {
     sound.playClick();
     window.open('https://t.me/csskinuzbot?start=auth', '_blank');
-  };
-
-  // Brauzerda tezkor sinash (Demo Rejim)
-  const handleQuickBrowserLogin = async () => {
-    sound.playClick();
-    setIsLoading(true);
-    setError(null);
-    try {
-      await loginTelegram('demo_session');
-      sound.playWin(false);
-      closeAuthModal();
-    } catch {
-      closeAuthModal();
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   // Steam orqali kirish
@@ -171,16 +154,6 @@ export const AuthModal: React.FC = () => {
 
             {/* Telegram Login Widget Container */}
             <div className="flex justify-center py-1 overflow-hidden" ref={widgetContainerRef}></div>
-
-            {/* Brauzerda tezkor sinash */}
-            <button
-              onClick={handleQuickBrowserLogin}
-              disabled={isLoading}
-              className="w-full bg-white/[0.05] hover:bg-white/[0.09] text-zinc-300 hover:text-white font-medium py-2 rounded-xl text-xs transition-all flex items-center justify-center space-x-1.5 border border-white/[0.06]"
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Brauzerda Tezkor Kirish (Demo)</span>
-            </button>
           </div>
         )}
 

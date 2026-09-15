@@ -3,7 +3,8 @@ import { InventoryItem } from '../types/index.js';
 import { ApiClient } from '../services/api.js';
 import { useAuthStore } from '../stores/authStore.js';
 import { SkinCard } from '../components/SkinCard.js';
-import { Shield, DollarSign, Download, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Shield, DollarSign, Download, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { sound } from '../services/sound.js';
 
 interface InventoryPageProps {
   onNavigate: (tab: string) => void;
@@ -38,6 +39,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
   };
 
   const handleToggleSelect = (id: string) => {
+    sound.playClick();
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter((item) => item !== id));
     } else {
@@ -46,6 +48,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
   };
 
   const handleSelectAll = () => {
+    sound.playClick();
     if (selectedIds.length === inventory.length) {
       setSelectedIds([]);
     } else {
@@ -57,8 +60,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
     .filter((item) => selectedIds.includes(item.id))
     .reduce((sum, item) => sum + (item.base_price || item.obtained_price), 0);
 
+  const totalInventoryValue = inventory
+    .reduce((sum, item) => sum + (item.base_price || item.obtained_price), 0);
+
   const handleBulkSell = async () => {
     if (!selectedIds.length) return;
+    sound.playCoin();
     setIsProcessing(true);
     setMessage(null);
 
@@ -79,6 +86,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
   };
 
   const handleWithdrawSteam = async (inventoryItemId: string) => {
+    sound.playClick();
     setIsProcessing(true);
     setMessage(null);
 
@@ -86,7 +94,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
       const res = await ApiClient.withdrawSkin(inventoryItemId);
       setMessage({
         type: 'success',
-        text: res.message || 'Steam bot savdo taklifini yubordi! Iltimos, Steam Guard ilovangizda tasdiqlang.',
+        text: res.message || 'Steam bot savdo taklifini yubordi! Iltimos, Steam ilovangizda tasdiqlang.',
       });
       loadInventory();
     } catch (err: any) {
@@ -98,13 +106,18 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
 
   if (!user) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <Shield className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-100">Inventarni ko'rish uchun profilingizga kiring</h2>
-        <p className="text-xs text-slate-400 mt-1 mb-6">Barcha yutilgan CS2 skinlaringiz hisobingizda xavfsiz saqlanadi</p>
+      <div className="max-w-4xl mx-auto px-4 py-24 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-4">
+          <Shield className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-white">Inventarni ko'rish uchun profilingizga kiring</h2>
+        <p className="text-xs text-zinc-400 mt-1 mb-6">Barcha yutilgan CS2 skinlaringiz hisobingizda xavfsiz saqlanadi</p>
         <button
-          onClick={openAuthModal}
-          className="bg-brand-gold hover:bg-amber-400 text-slate-950 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-glow-gold"
+          onClick={() => {
+            sound.playClick();
+            openAuthModal();
+          }}
+          className="btn-gold px-6 py-3 rounded-xl text-xs uppercase tracking-wider shadow-sm"
         >
           Kirish
         </button>
@@ -113,22 +126,24 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 pb-24 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 py-8 pb-24 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-100 uppercase tracking-tight flex items-center space-x-2">
-            <Shield className="w-6 h-6 text-brand-gold" />
+          <h1 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight flex items-center space-x-2">
+            <Shield className="w-6 h-6 text-amber-400" />
             <span>Mening Inventarim ({inventory.length})</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">Yutilgan skinlarni sotishingiz yoki Steamga yechib olishingiz mumkin</p>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Jami qiymat: <span className="font-mono font-bold text-amber-400">{Math.floor(totalInventoryValue / 100).toLocaleString()} UZS</span>
+          </p>
         </div>
 
         {/* Ommaviy Amallar */}
         {inventory.length > 0 && (
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             <button
               onClick={handleSelectAll}
-              className="bg-background-secondary hover:bg-background-tertiary border border-slate-800 text-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors"
+              className="btn-surface px-3.5 py-2 rounded-xl text-xs font-semibold"
             >
               {selectedIds.length === inventory.length ? 'Bekor qilish' : 'Barchasini tanlash'}
             </button>
@@ -137,7 +152,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
               <button
                 onClick={handleBulkSell}
                 disabled={isProcessing}
-                className="bg-brand-green hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center space-x-1.5 shadow-sm"
+                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 shadow-sm"
               >
                 <DollarSign className="w-4 h-4" />
                 <span>Tanlanganlarni Sotish (+{Math.floor(selectedTotalValue / 100).toLocaleString()} UZS)</span>
@@ -150,10 +165,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
       {message && (
         <div className={`p-4 rounded-2xl border text-xs flex items-center space-x-2.5 ${
           message.type === 'success'
-            ? 'bg-emerald-950/40 border-brand-green text-emerald-300'
-            : 'bg-red-950/40 border-brand-red text-red-300'
+            ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-300'
+            : 'bg-red-950/40 border-red-800/40 text-red-300'
         }`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+          {message.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />}
           <span>{message.text}</span>
         </div>
       )}
@@ -162,20 +177,28 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {[1, 2, 3, 4, 5].map((n) => (
-            <div key={n} className="bg-background-secondary border border-slate-800 rounded-2xl h-48 animate-pulse"></div>
+            <div key={n} className="bg-[#0e1017] border border-white/[0.04] rounded-2xl h-48 animate-pulse"></div>
           ))}
         </div>
       ) : inventory.length === 0 ? (
-        <div className="bg-background-secondary border border-slate-800 rounded-3xl p-16 text-center">
-          <Shield className="w-14 h-14 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-200">Inventaringiz bo'sh</h3>
-          <p className="text-xs text-slate-500 mt-1 mb-5">Birinchi keysingizni oching va noyob skinlarga ega bo'ling!</p>
-          <button
-            onClick={() => onNavigate('cases')}
-            className="bg-brand-gold hover:bg-amber-400 text-slate-950 font-bold px-6 py-3 rounded-xl text-xs transition-all shadow-glow-gold"
-          >
-            Keyslarga O'tish
-          </button>
+        <div className="bg-[#0e1017] border border-white/[0.04] rounded-3xl p-16 text-center space-y-2">
+          <Shield className="w-12 h-12 text-zinc-600 mx-auto" />
+          <h3 className="text-base font-bold text-white">Inventaringiz Hozircha Bo'sh</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+            Birinchi keysingizni oching yoki bepul kunlik keys orqali noyob skinlarga ega bo'ling!
+          </p>
+          <div className="pt-4">
+            <button
+              onClick={() => {
+                sound.playClick();
+                onNavigate('cases');
+              }}
+              className="btn-gold px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider"
+            >
+              <Sparkles className="w-3.5 h-3.5 inline mr-1" />
+              <span>Keyslarga O'tish</span>
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -192,7 +215,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
                     <button
                       onClick={() => handleWithdrawSteam(item.id)}
                       disabled={isProcessing}
-                      className="bg-brand-cyan/20 hover:bg-brand-cyan/30 text-brand-cyan border border-brand-cyan/40 py-1 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1"
+                      className="bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 py-1 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1"
                       title="Steam inventariga yechib olish"
                     >
                       <Download className="w-3 h-3" />
@@ -200,11 +223,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ onNavigate }) => {
                     </button>
                     <button
                       onClick={async () => {
+                        sound.playCoin();
                         const res = await ApiClient.sellItem(item.id);
                         updateBalance(res.newBalance);
                         loadInventory();
                       }}
-                      className="bg-brand-green/20 hover:bg-brand-green/30 text-brand-green border border-brand-green/40 py-1 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1"
+                      className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 py-1 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1"
                     >
                       <DollarSign className="w-3 h-3" />
                       <span>Sotish</span>

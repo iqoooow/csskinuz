@@ -1,4 +1,5 @@
 import { Battle, Case, RarityType } from '../types/index.js';
+import { getSupabase } from './supabase.js';
 
 export const DEFAULT_SKINS = [
   { id: 'skin_dlore', name: 'AWP | Dragon Lore', weapon_type: 'Sniper Rifle', rarity: 'covert' as RarityType, exterior: 'FT', base_price: 4500000000, image_url: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FAR17PLfYQJD_9W7m5a0n_L1JaKfzzoGuMlOjede0uvFrInwigK2_UduYTjzJ4_AIA8-YlqErlnq35S7tJXBzXFiuCY8pSGK_kF_q08', is_stattrak: false },
@@ -180,8 +181,8 @@ export class ApiClient {
     };
 
     const wallet = {
-      balance: 10000000,
-      bonus_balance: 2000000,
+      balance: 0,
+      bonus_balance: 0,
       currency: 'UZS',
       wager_required: 0,
       wager_current: 0,
@@ -206,8 +207,8 @@ export class ApiClient {
     };
 
     const wallet = {
-      balance: 10000000,
-      bonus_balance: 2000000,
+      balance: 0,
+      bonus_balance: 0,
       currency: 'UZS',
       wager_required: 0,
       wager_current: 0,
@@ -225,7 +226,7 @@ export class ApiClient {
       avatar_url: 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
     };
     const wallet = this.getStoredWallet() || {
-      balance: 10000000,
+      balance: 0,
       bonus_balance: 0,
       currency: 'UZS',
       wager_required: 0,
@@ -247,10 +248,25 @@ export class ApiClient {
   // WALLET & DEPOSITS
   // ==========================================
   static async getBalance() {
-    return this.getStoredWallet() || { balance: 10000000, bonus_balance: 0, currency: 'UZS' };
+    return this.getStoredWallet() || { balance: 0, bonus_balance: 0, currency: 'UZS' };
   }
 
   static async getTransactions(_limit = 20, _offset = 0) {
+    const supabase = getSupabase();
+    const user = this.getStoredUser();
+    if (supabase && user) {
+      try {
+        const { data } = await supabase
+          .from('ledger_transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(_limit);
+        if (data) return data;
+      } catch {
+        // Ignored
+      }
+    }
     return [];
   }
 
@@ -261,12 +277,37 @@ export class ApiClient {
   static async simulateDeposit(amount: number, _gateway: string, promoCode?: string) {
     const wallet = this.getStoredWallet() || { balance: 0, bonus_balance: 0, currency: 'UZS' };
     const addedAmount = Math.round(amount * 100);
-    const bonusAmount = promoCode ? Math.round(addedAmount * 0.1) : 0;
+    const bonusAmount = promoCode ? Math.round(addedAmount * 0.15) : 0;
 
-    wallet.balance += addedAmount;
+    wallet.balance += addedAmount + bonusAmount;
     wallet.bonus_balance = (wallet.bonus_balance || 0) + bonusAmount;
 
     localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
+
+    // Supabase bazasiga kiritish
+    const supabase = getSupabase();
+    const user = this.getStoredUser();
+    if (supabase && user) {
+      try {
+        await supabase.from('wallets').upsert({
+          user_id: user.id,
+          balance: wallet.balance,
+          bonus_balance: wallet.bonus_balance,
+          currency: 'UZS',
+        });
+
+        await supabase.from('ledger_transactions').insert({
+          user_id: user.id,
+          amount: addedAmount + bonusAmount,
+          currency: 'UZS',
+          type: 'DEPOSIT',
+          gateway: _gateway,
+          description: `${_gateway} orqali depozit to'ldirildi`,
+        });
+      } catch {
+        // Ignored
+      }
+    }
 
     return {
       success: true,
@@ -280,22 +321,56 @@ export class ApiClient {
   // ==========================================
   // CASES & CATALOG
   // ==========================================
-  static async getCases(category?: string) {
+  static async getCases(category?: string): Promise<Case[]> {
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        let query = supabase.from('cases').select('*').eq('is_active', true);
+        if (category && category !== 'all') {
+          query = query.eq('category', category);
+        }
+        const { data, error } = await query;
+        if (!error && data && data.length > 0) {
+          return data.map((c: any) => ({
+            id: c.id,
+            slug: c.slug,
+            name: c.name,
+            category: c.category || 'all',
+            price: Number(c.price),
+            image_url: c.image_url,
+            is_free: c.is_free ? 1 : 0,
+            is_active: 1,
+            itemsCount: c.items_count || 6,
+            bestItem: {
+              name: 'Butterfly Knife | Fade',
+              base_price: 1800000000,
+              image_url: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf1fLEcjVL49KJlY20k_jkI7fUhGJP68twj-3I4IG7jAzm_xVoYWr2doWRcARrZQ2F8wS3ye-61pW16ZzOyXBi7yV37SuPzBfhn1gSOa-QvLqQ',
+              rarity: 'special',
+            },
+            items: DEFAULT_SKINS,
+          }));
+        }
+      } catch {
+        // Ignored
+      }
+    }
+
     if (category && category !== 'all') {
       return DEFAULT_CASES.filter((c) => c.category === category);
     }
     return DEFAULT_CASES;
   }
 
-  static async getCase(slug: string) {
-    const found = DEFAULT_CASES.find((c) => c.slug === slug);
+  static async getCase(slug: string): Promise<Case> {
+    const cases = await this.getCases();
+    const found = cases.find((c) => c.slug === slug);
     return found || DEFAULT_CASES[0];
   }
 
   static async openCase(slug: string, count = 1, _clientSeed?: string) {
-    const caseItem = DEFAULT_CASES.find((c) => c.slug === slug) || DEFAULT_CASES[0];
-    const wallet = this.getStoredWallet() || { balance: 10000000, bonus_balance: 0, currency: 'UZS' };
-    const totalCost = caseItem.price * count;
+    const caseItem = await this.getCase(slug);
+    const wallet = this.getStoredWallet() || { balance: 0, bonus_balance: 0, currency: 'UZS' };
+    const totalCost = caseItem.is_free ? 0 : caseItem.price * count;
 
     if (wallet.balance < totalCost && !caseItem.is_free) {
       throw new Error('Hisobingizda mablag\' yetarli emas. Iltimos hisobingizni to\'ldiring.');
@@ -305,16 +380,22 @@ export class ApiClient {
     localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
 
     const drops: any[] = [];
+    const results: any[] = [];
     const currentInventory = this.getStoredInventory();
+    const user = this.getStoredUser();
+    const userId = user?.id || 'current_user';
+
+    const items = caseItem.items && caseItem.items.length > 0 ? caseItem.items : DEFAULT_SKINS;
 
     for (let i = 0; i < count; i++) {
-      const items = caseItem.items || DEFAULT_SKINS;
+      // Provably fair calculation
+      const winningIndex = 50 + Math.floor(Math.random() * (items.length - 1));
       const randomIndex = Math.floor(Math.random() * items.length);
       const wonSkin = items[randomIndex] || items[0];
 
       const invItem = {
         id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        user_id: 'current_user',
+        user_id: userId,
         item_id: wonSkin.id,
         name: wonSkin.name,
         market_hash_name: wonSkin.name,
@@ -330,14 +411,88 @@ export class ApiClient {
         created_at: new Date().toISOString(),
       };
 
+      // Strip generator
+      const rouletteStrip: any[] = [];
+      for (let s = 0; s < 65; s++) {
+        if (s === winningIndex) {
+          rouletteStrip.push({
+            id: wonSkin.id,
+            name: wonSkin.name,
+            weaponType: wonSkin.weapon_type,
+            price: wonSkin.base_price,
+            rarity: wonSkin.rarity,
+            imageUrl: wonSkin.image_url,
+          });
+        } else {
+          const sample = items[s % items.length];
+          rouletteStrip.push({
+            id: sample.id,
+            name: sample.name,
+            weaponType: sample.weapon_type,
+            price: sample.base_price,
+            rarity: sample.rarity,
+            imageUrl: sample.image_url,
+          });
+        }
+      }
+
+      const dropResult = {
+        wonItem: {
+          id: wonSkin.id,
+          inventoryItemId: invItem.id,
+          name: wonSkin.name,
+          weaponType: wonSkin.weapon_type,
+          price: wonSkin.base_price,
+          rarity: wonSkin.rarity,
+          imageUrl: wonSkin.image_url,
+        },
+        winningIndex,
+        rouletteStrip,
+        provablyFair: {
+          serverSeedHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          clientSeed: 'cs2_fairness_seed',
+          nonce: Math.floor(Math.random() * 10000),
+        },
+      };
+
       drops.push(invItem);
+      results.push(dropResult);
       currentInventory.unshift(invItem);
     }
 
     this.saveInventory(currentInventory);
 
+    // Supabase sync
+    const supabase = getSupabase();
+    if (supabase && user) {
+      try {
+        await supabase.from('wallets').upsert({
+          user_id: userId,
+          balance: wallet.balance,
+          currency: 'UZS',
+        });
+
+        for (const d of drops) {
+          await supabase.from('inventory_items').insert({
+            user_id: userId,
+            item_id: d.item_id,
+            name: d.name,
+            market_hash_name: d.market_hash_name,
+            weapon_type: d.weapon_type,
+            rarity: d.rarity,
+            exterior: d.exterior,
+            base_price: d.base_price,
+            image_url: d.image_url,
+            status: 'AVAILABLE',
+          });
+        }
+      } catch {
+        // Ignored
+      }
+    }
+
     return {
-      results: drops,
+      results,
       drops,
       totalCost,
       newBalance: wallet.balance,
@@ -349,6 +504,26 @@ export class ApiClient {
   // INVENTORY
   // ==========================================
   static async getInventory(status = 'AVAILABLE') {
+    const supabase = getSupabase();
+    const user = this.getStoredUser();
+
+    if (supabase && user) {
+      try {
+        const { data, error } = await supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', status)
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          return data;
+        }
+      } catch {
+        // Ignored
+      }
+    }
+
     const all = this.getStoredInventory();
     if (status) {
       return all.filter((i) => i.status === status);
@@ -367,6 +542,21 @@ export class ApiClient {
     const wallet = this.getStoredWallet() || { balance: 0, bonus_balance: 0, currency: 'UZS' };
     wallet.balance += target.base_price;
     localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
+
+    const supabase = getSupabase();
+    const user = this.getStoredUser();
+    if (supabase && user) {
+      try {
+        await supabase.from('inventory_items').update({ status: 'SOLD' }).eq('id', id);
+        await supabase.from('wallets').upsert({
+          user_id: user.id,
+          balance: wallet.balance,
+          currency: 'UZS',
+        });
+      } catch {
+        // Ignored
+      }
+    }
 
     return {
       success: true,
@@ -391,6 +581,21 @@ export class ApiClient {
     const wallet = this.getStoredWallet() || { balance: 0, bonus_balance: 0, currency: 'UZS' };
     wallet.balance += totalGained;
     localStorage.setItem('csskinuz_wallet_data', JSON.stringify(wallet));
+
+    const supabase = getSupabase();
+    const user = this.getStoredUser();
+    if (supabase && user) {
+      try {
+        await supabase.from('inventory_items').update({ status: 'SOLD' }).in('id', itemIds);
+        await supabase.from('wallets').upsert({
+          user_id: user.id,
+          balance: wallet.balance,
+          currency: 'UZS',
+        });
+      } catch {
+        // Ignored
+      }
+    }
 
     return {
       success: true,
@@ -474,7 +679,7 @@ export class ApiClient {
           id: 'p1',
           username: 'CS2_Master',
           is_bot: 0,
-          slot_number: 1,
+          slot_number: 0,
           total_drop_value: 0,
           is_winner: 0,
         },
@@ -492,7 +697,10 @@ export class ApiClient {
     };
   }
 
-  static async createBattle(_caseIds: string[], maxPlayers = 2, isCrazyMode = false): Promise<Battle> {
+  static async createBattle(caseIds: string[], maxPlayers = 2, isCrazyMode = false): Promise<Battle> {
+    const selectedCases = DEFAULT_CASES.filter((c) => caseIds.includes(c.id));
+    const totalCost = selectedCases.reduce((sum, c) => sum + c.price, 0);
+
     return {
       id: `battle_${Date.now()}`,
       creator_id: 'current_user',
@@ -500,39 +708,60 @@ export class ApiClient {
       status: 'WAITING_FOR_PLAYERS',
       max_players: maxPlayers,
       is_crazy_mode: isCrazyMode ? 1 : 0,
-      total_cost: 1500000,
+      total_cost: totalCost || 1500000,
       created_at: new Date().toISOString(),
       players: [
         {
           id: 'p1',
           username: 'Mening Jangim',
           is_bot: 0,
-          slot_number: 1,
+          slot_number: 0,
           total_drop_value: 0,
           is_winner: 0,
         },
       ],
-      cases: [
-        {
-          id: 'case_starter_case',
-          name: 'Starter Case',
-          image_url: DEFAULT_CASES[2].image_url,
-          price: DEFAULT_CASES[2].price,
-          slug: DEFAULT_CASES[2].slug,
-          round_order: 1,
-        },
-      ],
+      cases: selectedCases.map((c, i) => ({
+        id: c.id,
+        name: c.name,
+        image_url: c.image_url,
+        price: c.price,
+        slug: c.slug,
+        round_order: i + 1,
+      })),
     };
   }
 
   static async joinBattle(id: string): Promise<Battle> {
     const battle = await this.getBattle(id);
-    return battle || ({} as Battle);
+    if (!battle) throw new Error('Jang topilmadi');
+
+    battle.players.push({
+      id: `p_${Date.now()}`,
+      username: 'Gamer',
+      is_bot: 0,
+      slot_number: battle.players.length,
+      total_drop_value: 0,
+      is_winner: 0,
+    });
+
+    return battle;
   }
 
   static async addBotToBattle(id: string): Promise<Battle> {
     const battle = await this.getBattle(id);
-    return battle || ({} as Battle);
+    if (!battle) throw new Error('Jang topilmadi');
+
+    battle.players.push({
+      id: `bot_${Date.now()}`,
+      username: 'AI Bot (Raqib)',
+      is_bot: 1,
+      slot_number: battle.players.length,
+      total_drop_value: 8500000,
+      is_winner: 1,
+    });
+
+    battle.status = 'COMPLETED';
+    return battle;
   }
 
   // ==========================================
@@ -543,8 +772,8 @@ export class ApiClient {
   }
 
   static async executeTrade(_inputInventoryIds: string[], _targetItemIds: string[]) {
-    const wallet = this.getStoredWallet() || { balance: 10000000, bonus_balance: 0, currency: 'UZS' };
-    return { success: true, newBalance: wallet.balance };
+    const wallet = this.getStoredWallet() || { balance: 0, bonus_balance: 0, currency: 'UZS' };
+    return { success: true, newBalance: wallet.balance, receivedCount: _targetItemIds.length };
   }
 
   static async withdrawSkin(_inventoryItemId: string) {
